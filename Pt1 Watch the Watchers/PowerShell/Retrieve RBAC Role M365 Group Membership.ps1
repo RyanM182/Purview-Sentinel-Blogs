@@ -1,16 +1,17 @@
 <#
+.NAME Retrieve RBAC Role M365 Group Membership
+
 .SYNOPSIS
 Connects to Security & Compliance PowerShell (IPPS) and exports all RBAC Role Group memberships to CSV.
 
 .DESCRIPTION
-- Uses Connect-IPPSSession (modern auth; supports MFA). 【1-859f73】
+- Uses Connect-IPPSSession (modern auth; supports MFA).
 - Lists role groups via Get-RoleGroup.
-- Lists role group members via Get-RoleGroupMember. 【2-d59546】
-- Exports to: C:\Scripts Output\RoleGroupsforSentinel.csv
+- Lists role group members via Get-RoleGroupMember.
+- Exports to: C:\Scripts Output\RoleGroupsforSentinel.csv - IMPORTANT: Please ensure you change the export folder to where you require.
 
 .NOTES
-This script DOES NOT grant access. The signed-in user must already have RBAC permissions
-to run these cmdlets in the tenant.
+This script DOES NOT grant access. The signed-in user must already have RBAC permissions to run these cmdlets in the tenant.
 #>
 
 [CmdletBinding()]
@@ -27,7 +28,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 function Ensure-ExchangeOnlineManagementModule {
-    # Connect-IPPSSession is provided by the ExchangeOnlineManagement module. 【1-859f73】
+    # Connect-IPPSSession is provided by the ExchangeOnlineManagement module.
     $mod = Get-Module -ListAvailable -Name ExchangeOnlineManagement |
            Sort-Object Version -Descending |
            Select-Object -First 1
@@ -89,7 +90,7 @@ try {
             -PercentComplete $pct
 
         try {
-            $members = Get-RoleGroupMember -Identity $rg.Name -ResultSize Unlimited  # 【2-d59546】
+            $members = Get-RoleGroupMember -Identity $rg.Name -ResultSize Unlimited  #
         }
         catch {
             $rows.Add([pscustomobject]@{
