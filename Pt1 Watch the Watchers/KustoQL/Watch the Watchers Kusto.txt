@@ -1,0 +1,78 @@
+====================================================================================================================================
+
+Watch the Watchers Blog
+
+====================================================================================================================================
+
+// Permissions Granted ALL Purview Roles
+CloudAppEvents
+| where TimeGenerated > ago(365d)
+| where ActionType == "GrantPermissionsAsync"
+| extend ActingAdmin = tostring(RawEventData.ActingCallerId)
+| extend ApplicationID = tostring(RawEventData.AppId)
+| extend TimeAdded = tostring(RawEventData.CreationTime)
+| extend RBACOperation = tostring(RawEventData.Operation)
+| extend PreExecutionMessage = tostring(RawEventData.PreExecutionMessage)
+| extend DirectInfo = extract(@"\{.*", 0, PreExecutionMessage)
+| extend PreExecutionJson = parse_json(DirectInfo)
+| extend NameGranted = tostring(PreExecutionJson.MemberDetail.MemberDisplayName)
+| extend PurviewRBACId = tostring(PreExecutionJson.RoleGroupDetail.RoleGroupId)
+| extend PurviewRBACName = tostring(PreExecutionJson.RoleGroupDetail.RoleGroupName)
+| project TimeGenerated, ActingAdmin, TimeAdded, RBACOperation, PurviewRBACId, PurviewRBACName, NameGranted
+
+====================================================================================================================================
+
+// Permissions Revoked ALL Purview Roles
+CloudAppEvents
+| where TimeGenerated > ago(365d)
+| where ActionType == "DeletePermissionAsync"
+| extend ActingAdmin = tostring(RawEventData.ActingCallerId)
+| extend ApplicationID = tostring(RawEventData.AppId)
+| extend TimeAdded = tostring(RawEventData.CreationTime)
+| extend RBACOperation = tostring(RawEventData.Operation)
+| extend PreExecutionMessage = tostring(RawEventData.PreExecutionMessage)
+| extend DirectInfo = extract(@"\{.*", 0, PreExecutionMessage)
+| extend PreExecutionJson = parse_json(DirectInfo)
+| extend NameRevoked = tostring(PreExecutionJson.MemberDetail.MemberDisplayName)
+| extend PurviewRBACId = tostring(PreExecutionJson.RoleGroupDetail.RoleGroupId)
+| extend PurviewRBACName = tostring(PreExecutionJson.RoleGroupDetail.RoleGroupName)
+| project TimeGenerated, ActingAdmin, TimeAdded, RBACOperation, PurviewRBACId, PurviewRBACName, NameRevoked
+
+====================================================================================================================================
+
+// RBAC Roles Created or Copied
+CloudAppEvents
+| where TimeGenerated > ago(365d)
+| where ActionType == "CreateRBACRoleGroupDefinition"
+| extend ActingAdmin = tostring(RawEventData.ActingCallerId)
+| extend ApplicationID = tostring(RawEventData.AppId)
+| extend TimeCreated = tostring(RawEventData.CreationTime)
+| extend RBACOperation = tostring(RawEventData.Operation)
+| extend PreExecutionMessage = tostring(RawEventData.PreExecutionMessage)
+| extend RoleGroupDisplayName = extract(@"RoleGroupDisplayName"":\s*""([^""]+)""", 1, PreExecutionMessage)
+| extend RoleId = extract(@"RoleId"":\s*""([^""]+)""", 1, PreExecutionMessage)
+| extend RoleNames = extract_all(@"RoleName"":\s*""([^""]+)""", PreExecutionMessage)
+| project TimeGenerated,ActingAdmin,ApplicationID,TimeCreated,RBACOperation,RoleGroupDisplayName,RoleId,RoleNames
+
+====================================================================================================================================
+
+// M365 Group Hosted Permissions for Purview RBAC
+let EntraIDGroupName = "SG - Purview Administrators"; //Add your Entra ID Group Name that is hosted in Purview
+CloudAppEvents
+| where TimeGenerated >ago(365d)
+| where ActionType == "Add member to group." //The target value requires the full stop!
+| extend GroupName = tostring(parse_json(tostring(RawEventData.ModifiedProperties))[1].NewValue)
+| extend GroupId = tostring(parse_json(tostring(RawEventData.ModifiedProperties))[0].NewValue)
+| where GroupName startswith  (EntraIDGroupName)
+| extend AdminGrantedAccessName = tostring(RawEventData.ObjectId)
+| extend AdminGrantedAccessId = tostring(ActivityObjects[1].Id)
+| extend AdminExecutingGrantName = tostring(parse_json(tostring(RawEventData.Actor))[0].ID)
+| extend AdminExecutingGrantId = tostring(parse_json(tostring(RawEventData.Actor))[3].ID)
+| project TimeGenerated,GroupName,GroupId,AdminGrantedAccessName,AdminGrantedAccessId,AdminExecutingGrantName,AdminExecutingGrantId
+
+====================================================================================================================================
+
+END
+
+====================================================================================================================================
+
