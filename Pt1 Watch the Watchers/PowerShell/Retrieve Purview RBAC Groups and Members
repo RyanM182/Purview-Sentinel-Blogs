@@ -1,0 +1,72 @@
+# ------------------------------------------------------------
+# Purview RBAC Role Group Membership Export (PowerShell 5.1 safe)
+# RoleGroupName, RoleGroupGuid, MemberName, MemberGuid
+# ------------------------------------------------------------
+
+Import-Module ExchangeOnlineManagement -ErrorAction Stop
+
+# Connect to Purview (Security & Compliance PowerShell)
+Connect-IPPSSession
+
+function Get-FirstNonEmptyPropertyValue {
+    param(
+        [Parameter(Mandatory=$true)] $Object,
+        [Parameter(Mandatory=$true)] [string[]] $PropertyNames
+    )
+    foreach ($p in $PropertyNames) {
+        if ($Object.PSObject.Properties.Name -contains $p) {
+            $v = $Object.$p
+            if ($null -ne $v -and "$v".Trim().Length -gt 0) { return $v }
+        }
+    }
+    return $null
+}
+
+$roleGroups = Get-RoleGroup -ResultSize Unlimited
+
+$rows = foreach ($rg in $roleGroups) {
+
+    $members = @()
+    try {
+        $members = Get-RoleGroupMember -Identity $rg.Name -ResultSize Unlimited
+    } catch {
+        [pscustomobject]@{
+            RoleGroupName = $rg.Name
+            RoleGroupGuid = $rg.Guid
+            MemberName    = '[ACCESS DENIED / ERROR]'
+            MemberGuid    = $null
+        }
+        continue
+    }
+
+    if (-not $members -or $members.Count -eq 0) {
+        [pscustomobject]@{
+            RoleGroupName = $rg.Name
+            RoleGroupGuid = $rg.Guid
+            MemberName    = $null
+            MemberGuid    = $null
+        }
+        continue
+    }
+
+    foreach ($m in $members) {
+
+        $memberGuid = Get-FirstNonEmptyPropertyValue -Object $m -PropertyNames @(
+            'Guid',
+            'ExternalDirectoryObjectId',
+            'ObjectGuid',
+            'ExchangeGuid'
+        )
+
+        [pscustomobject]@{
+            RoleGroupName = $rg.Name
+            RoleGroupGuid = $rg.Guid
+            MemberName    = $m.Name
+            MemberGuid    = $memberGuid
+        }
+    }
+}
+
+$path = "C:\Scripts Output\PurviewRoleGroupMembers_{0}.csv" -f (Get-Date -Format "yyyyMMdd_HHmmss")
+$rows | Export-Csv -Path $path -NoTypeInformation -Encoding UTF8
+Write-Host "Exported to: $path"
