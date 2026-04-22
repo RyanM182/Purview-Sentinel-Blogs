@@ -1,0 +1,38 @@
+Import-Module Microsoft.Graph.Groups
+
+Connect-MgGraph -Scopes "Group.Read.All","GroupMember.Read.All"
+
+# Ensure output folder exists
+if (-not (Test-Path "C:\Scripts Output")) {
+    New-Item -Path "C:\Scripts Output" -ItemType Directory | Out-Null
+}
+
+# Your output file naming pattern
+$path = "C:\Scripts Output\EntraIDRoleGroupMembers_{0}.csv" -f (Get-Date -Format "yyyyMMdd_HHmmss")
+
+# Get all groups
+$groups = Get-MgGroup -All
+
+# Build rows
+$rows = foreach ($group in $groups) {
+
+    $members = Get-MgGroupMember -GroupId $group.Id -All
+
+    foreach ($m in $members) {
+
+        $ap = $m.AdditionalProperties
+
+        [PSCustomObject]@{
+            GroupName         = $group.DisplayName
+            GroupId           = $group.Id
+            MemberId          = $m.Id
+            MemberType        = $ap["@odata.type"]
+            MemberDisplayName = $ap["displayName"]
+            MemberUPN         = $ap["userPrincipalName"]
+        }
+    }
+}
+
+# Export
+$rows | Export-Csv -Path $path -NoTypeInformation -Encoding UTF8
+Write-Host "Exported to: $path"
